@@ -132,7 +132,7 @@ class RuleParser
 		if aLine.start_with?("###") && aLine.end_with?("###") && aLine.length>=6 then
 			mode = DEF_TYPE_COMMENT
 			aLine = aLine[3...aLine.length-4]
-		elsif aLine.start_with?("[[[") && aLine.end_with?("]]]") && aLine.length>6 then
+		elsif aLine.start_with?("[[[") && aLine.end_with?("]]]") && aLine.length>=6 then
 			mode = DEF_TYPE_TARGET_FILE
 			aLine = aLine[3...aLine.length-3]
 		elsif aLine.start_with?("!!!") && aLine.length>3 && mode!=DEF_TYPE_REPLACE_FROM then
@@ -222,10 +222,10 @@ class TextPostProcessor
 
 		if convLineArrayToString then
 			rules.each do |aFileRule, theRule|
-				aFileRule=Regexp.new(aFileRule)
-				if inFilePath.to_s.match(aFileRule)!=nil then
+				aFileRule=!aFileRule.to_s.empty? ? Regexp.new(aFileRule) : nil
+				if !aFileRule || inFilePath.to_s.match(aFileRule)!=nil then
 					theRule.each do |aRule|
-						regexpKey = aRule[:replace_from].kind_of?(Regexp) ? aRule[:replace_from] : Regexp.escape(aRule[:replace_from])
+						regexpKey = aRule[:replace_from].kind_of?(Regexp) ? aRule[:replace_from] : Regexp.new(Regexp.escape(aRule[:replace_from]))
 						convLineArrayToString = convLineArrayToString.gsub( regexpKey, aRule[:replace_to] )
 					end
 				end
@@ -262,4 +262,14 @@ end
 
 rules = RuleParser.loadRule(ARGV[1])
 puts rules if options[:verbose]
-TextPostProcessor.execute(ARGV[0], options[:outPath], rules)
+
+paths = []
+if FileTest.directory?(ARGV[0]) then
+	FileUtil.iteratePath(ARGV[0], nil, paths, false, false)
+else
+	paths << ARGV[0]
+end
+
+paths.each do |aPath|
+	TextPostProcessor.execute(aPath, options[:outPath], rules)
+end
